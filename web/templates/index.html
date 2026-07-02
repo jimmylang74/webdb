@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Explorer</title>
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header id="header">
+            <div class="header-left">
+                <span class="logo">DB Explorer</span>
+                <span id="db-status" class="db-status disconnected">Not connected</span>
+            </div>
+            <div class="header-right">
+                <button id="btn-disconnect-db" class="btn-disconnect hidden" title="Disconnect database">&#x2715; Disconnect</button>
+                <button id="btn-refresh-tree" title="Refresh file tree">&#x21bb;</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div id="main">
+            <!-- Left Panel: Tree -->
+            <aside id="left-panel">
+                <div class="panel-header">
+                    <span class="panel-title">Files</span>
+                </div>
+                <div id="tree-container" class="tree-container">
+                    <!-- Tree rendered by JS -->
+                </div>
+            </aside>
+
+            <!-- Vertical resize handle -->
+            <div id="resize-v" class="resize-handle-v" title="Drag to resize"></div>
+
+            <!-- Right Content -->
+            <div id="right-content">
+                <!-- Data Table Area -->
+                <div id="data-panel">
+                    <div class="panel-header">
+                        <span id="table-title" class="panel-title">Results</span>
+                        <div id="table-controls" class="table-controls hidden">
+                            <input type="text" id="filter-input" placeholder="Filter..." class="filter-input">
+                            <button id="btn-filter" class="btn-small" title="Filter rows">&#x1F50D;</button>
+                            <button id="btn-clear-filter" class="btn-small" title="Clear filter">&times;</button>
+                        </div>
+                    </div>
+                    <div id="data-container" class="data-container">
+                        <div class="placeholder-msg">Select a table from the tree or run a query in the terminal</div>
+                    </div>
+                    <div id="pagination" class="pagination hidden">
+                        <button id="page-prev" class="btn-small">&larr; Prev</button>
+                        <span id="page-info">Page 1 of 1</span>
+                        <button id="page-next" class="btn-small">Next &rarr;</button>
+                    </div>
+                </div>
+
+                <!-- Horizontal resize handle -->
+                <div id="resize-h" class="resize-handle-h" title="Drag to resize"></div>
+
+                <!-- Terminal Area -->
+                <div id="terminal-panel">
+                    <div class="panel-header terminal-header">
+                        <span class="panel-title">Terminal</span>
+                        <span id="terminal-cwd" class="terminal-cwd">~</span>
+                    </div>
+                    <div id="terminal-output" class="terminal-output">
+                        <!-- Terminal output rendered by JS -->
+                    </div>
+                    <div class="terminal-input-line">
+                        <span class="terminal-prompt">$</span>
+                        <input type="text" id="terminal-input" class="terminal-input" autofocus spellcheck="false" placeholder="Type a command or SQL query...">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Context Menu -->
+        <div id="context-menu" class="context-menu hidden">
+            <ul id="context-menu-items">
+                <!-- Items rendered by JS -->
+            </ul>
+        </div>
+    </div>
+
+    <script src="/static/js/tree.js"></script>
+    <script src="/static/js/terminal.js"></script>
+    <script src="/static/js/datatable.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
