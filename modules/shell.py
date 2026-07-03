@@ -20,13 +20,35 @@ class ShellSession:
         Args:
             command: The command string to execute.
             db_manager: Optional DatabaseManager instance. If provided and
-                        connected, SQL-looking commands are routed to it.
+                        connected, input is treated as SQL by default.
         """
         if not command or not command.strip():
             return ""
 
         command = command.strip()
 
+        # When a database is connected, treat input as SQL by default.
+        # Shell commands are still available via the "!" prefix or
+        # built-in navigation commands (cd, ls, ll, pwd).
+        if db_manager and db_manager.is_connected():
+            # "!<shell command>" escapes to the shell
+            if command.startswith("!"):
+                return self._run_command(command[1:].strip())
+
+            # Built-in navigation commands always go to the shell
+            if command.startswith("cd "):
+                return self._handle_cd(command[3:].strip())
+            if command == "cd":
+                return self._handle_cd("~")
+            if command.startswith("pwd"):
+                return self.cwd + "\n"
+            if command.startswith("ls") or command.startswith("ll"):
+                return self._handle_ls(command)
+
+            # Everything else is SQL
+            return self._execute_sql(command, db_manager)
+
+        # No database connected — all input is a shell command.
         # Handle cd separately (subprocess can't change our cwd)
         if command.startswith("cd "):
             return self._handle_cd(command[3:].strip())
@@ -39,10 +61,6 @@ class ShellSession:
 
         if command.startswith("ls") or command.startswith("ll"):
             return self._handle_ls(command)
-
-        # Check if this looks like SQL (database query)
-        if db_manager and db_manager.is_connected() and self._looks_like_sql(command):
-            return self._execute_sql(command, db_manager)
 
         # General shell command execution
         return self._run_command(command)
