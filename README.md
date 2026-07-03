@@ -7,8 +7,8 @@ Web-based SQLite browser with file manager, data table viewer, and integrated te
 
 ## Features
 
-- **File tree** — browse directories, navigate by clicking, auto-detect `.db`/`.sqlite`/`.sqlite3` files
-- **Database connection** — right-click or double-click a SQLite file to connect; right-click the DB root node or click header button to disconnect
+- **File tree** — browse directories, navigate by clicking, auto-detect `.db`/`.sqlite`/`.sqlite3`/`.duckdb`/`.ddb`/`.csv` files
+- **Database connection** — right-click or double-click a SQLite, DuckDB, or CSV file to connect; right-click the DB root node or click header button to disconnect
 - **Table viewer** — sortable columns, per-column text filters, pagination
 - **Built-in terminal** — shell commands (`cd`, `ls`, `pwd`) and SQL queries auto-detected when a database is connected
 - **Session isolation** — each browser tab has its own shell CWD and database connection (Flask signed cookies)
@@ -89,7 +89,8 @@ Vanilla JavaScript ES6 classes — no framework. Four components:
 - [Flask](https://flask.palletsprojects.com/) — web framework
 - [waitress](https://docs.pylonsproject.org/projects/waitress/) — production WSGI server (optional, auto-detected)
 
-No database drivers needed — SQLite is in the Python standard library.
+No database drivers needed for SQLite — it is in the Python standard library.
+[DuckDB](https://duckdb.org/) (`pip install duckdb`) is required for DuckDB (`.duckdb`/`.ddb`) and CSV (`.csv`) file support.
 
 ## License
 
