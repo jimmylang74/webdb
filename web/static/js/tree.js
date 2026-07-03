@@ -4,7 +4,7 @@
  * Renders a collapsible tree with:
  * - Directory listing for file navigation
  * - SQLite database structure when connected (tables → columns)
- * - Right-click context menu on SQLite files for "Connect"
+ * - Right-click context menu on SQLite/CSV/DuckDB files for "Connect"
  */
 class FileTree {
     constructor(containerEl, options = {}) {
@@ -60,7 +60,7 @@ class FileTree {
         }
     }
 
-    setDatabaseTree(dbPath, tables) {
+    setDatabaseTree(dbPath, tables, dbType) {
         this.dbConnected = true;
         this.treeData = {
             path: dbPath,
@@ -68,6 +68,7 @@ class FileTree {
             dbTree: true,
             dbPath: dbPath,
             tables: tables,
+            dbType: dbType,
         };
         this.render();
     }
@@ -130,22 +131,37 @@ class FileTree {
             content.dataset.name = entry.name;
             content.dataset.isDir = entry.is_dir;
             content.dataset.isSqlite = entry.is_sqlite;
+            content.dataset.isCsv = entry.is_csv;
+            content.dataset.isDuckdb = entry.is_duckdb;
+            content.dataset.dbType = entry.db_type;
 
-            const icon = entry.is_dir ? '&#x1F4C1;' : '&#x1F4C4;';
-            const labelClass = entry.is_sqlite ? 'tree-label sqlite-file' : 'tree-label';
+            let icon = '&#x1F4C4;';
+            let labelClass = 'tree-label';
+            if (entry.is_sqlite) {
+                icon = '&#x1F5C4;';
+                labelClass = 'tree-label db-file sqlite-file';
+            } else if (entry.is_duckdb) {
+                icon = '&#x1F5C4;';
+                labelClass = 'tree-label db-file duckdb-file';
+            } else if (entry.is_csv) {
+                icon = '&#x1F4C4;';
+                labelClass = 'tree-label db-file csv-file';
+            }
+            const dbTypeBadge = entry.db_type ? `<span class="tree-type-badge db-type-badge">${entry.db_type}</span>` : '';
             const sizeBadge = !entry.is_dir ? `<span class="tree-type-badge">${entry.size_str}</span>` : '';
 
             content.innerHTML = `
                 <span class="tree-expander placeholder">&#x25B6;</span>
                 <span class="tree-icon">${icon}</span>
                 <span class="${labelClass}">${this._escapeHtml(entry.name)}</span>
+                ${dbTypeBadge}
                 ${sizeBadge}
             `;
 
             if (entry.is_dir) {
                 content.addEventListener('click', () => this.loadDirectory(entry.path));
-            } else if (entry.is_sqlite) {
-                // Right-click for SQLite files
+            } else if (entry.is_sqlite || entry.is_csv || entry.is_duckdb) {
+                // Right-click for connectable files
                 content.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -165,6 +181,7 @@ class FileTree {
     async _renderDbTree(parentList, data) {
         const dbPath = data.dbPath;
         const dbName = dbPath.split('/').pop() || dbPath;
+        const dbType = data.dbType || (dbPath.toLowerCase().match(/\.(csv|duckdb|ddb|db|sqlite3?)$/) || [])[1] || 'sqlite';
 
         // Root: database file node
         const rootItem = document.createElement('li');
@@ -175,7 +192,8 @@ class FileTree {
         rootContent.innerHTML = `
             <span class="tree-expander expanded">&#x25B6;</span>
             <span class="tree-icon">&#x1F5C4;</span>
-            <span class="tree-label sqlite-file">${this._escapeHtml(dbName)}</span>
+            <span class="tree-label db-file">${this._escapeHtml(dbName)}</span>
+            <span class="tree-type-badge db-type-badge">${this._escapeHtml(dbType)}</span>
         `;
         rootContent.addEventListener('click', () => {
             const childrenList = rootItem.querySelector('.tree-children');
@@ -299,9 +317,11 @@ class FileTree {
 
     _showContextMenu(x, y, entry) {
         this.contextMenuItems.innerHTML = '';
-        if (entry.is_sqlite) {
+        if (entry.is_sqlite || entry.is_csv || entry.is_duckdb) {
+            const label = entry.is_csv ? 'Connect (CSV)' :
+                          entry.is_duckdb ? 'Connect (DuckDB)' : 'Connect';
             const item = document.createElement('li');
-            item.textContent = 'Connect';
+            item.textContent = label;
             item.addEventListener('click', () => {
                 this.contextMenu.classList.add('hidden');
                 this.onConnectDb(entry.path);

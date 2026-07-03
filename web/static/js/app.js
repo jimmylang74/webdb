@@ -10,6 +10,7 @@ class App {
         this.refreshBtn = document.getElementById('btn-refresh-tree');
         this.dbConnected = false;
         this.dbPath = null;
+        this.dbType = null;
 
         // Initialize components
         this.tree = new FileTree(document.getElementById('tree-container'), {
@@ -81,6 +82,7 @@ class App {
             if (json.ok && json.data.connected) {
                 this.dbConnected = true;
                 this.dbPath = json.data.db_path;
+                this.dbType = json.data.db_type;
                 this._updateDbStatus();
             }
         } catch (err) {
@@ -104,17 +106,18 @@ class App {
 
             this.dbConnected = true;
             this.dbPath = dbPath;
+            this.dbType = json.data.db_type;
 
             // Fetch tables
             const tablesRes = await fetch('/api/db/tables');
             const tablesJson = await tablesRes.json();
 
             if (tablesJson.ok) {
-                this.tree.setDatabaseTree(dbPath, tablesJson.data.tables);
+                this.tree.setDatabaseTree(dbPath, tablesJson.data.tables, this.dbType);
             }
 
             this._updateDbStatus();
-            this.terminal._writeln(`Connected to database: ${dbPath}`);
+            this.terminal._writeln(`Connected to ${this.dbType.toUpperCase()}: ${dbPath}`);
 
             // Show tables in terminal
             if (tablesJson.ok) {
@@ -156,7 +159,7 @@ class App {
                 const tablesRes = await fetch('/api/db/tables');
                 const tablesJson = await tablesRes.json();
                 if (tablesJson.ok) {
-                    this.tree.setDatabaseTree(this.dbPath, tablesJson.data.tables);
+                    this.tree.setDatabaseTree(this.dbPath, tablesJson.data.tables, this.dbType);
                 }
             } catch (err) {
                 console.error('Failed to refresh DB tree:', err);
@@ -168,7 +171,9 @@ class App {
 
     _updateDbStatus() {
         if (this.dbConnected) {
-            this.dbStatusEl.textContent = this.dbPath.split('/').pop();
+            const name = this.dbPath.split('/').pop();
+            const typeStr = this.dbType ? `[${this.dbType.toUpperCase()}] ` : '';
+            this.dbStatusEl.textContent = typeStr + name;
             this.dbStatusEl.className = 'db-status connected';
             if (this.dbDisconnectBtn) {
                 this.dbDisconnectBtn.classList.remove('hidden');

@@ -483,8 +483,16 @@ html, body {
     font-size: 12px;
 }
 
-.tree-label.sqlite-file {
+.tree-label.db-file {
     color: var(--accent);
+}
+
+.tree-label.duckdb-file {
+    color: var(--yellow);
+}
+
+.tree-label.csv-file {
+    color: var(--green);
 }
 
 .tree-type-badge {
@@ -493,6 +501,17 @@ html, body {
     margin-left: 4px;
     font-family: var(--font-mono);
     font-size: 10px;
+}
+
+.tree-type-badge.db-type-badge {
+    background: rgba(137, 180, 250, 0.15);
+    color: var(--accent);
+    padding: 0 4px;
+    border-radius: 2px;
+}
+
+.tree-label.db-file + .tree-type-badge.db-type-badge {
+    margin-left: 6px;
 }
 
 .tree-children {
