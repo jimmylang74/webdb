@@ -124,6 +124,7 @@ def api_db_status():
             "data": {
                 "connected": True,
                 "db_path": ctx.db.db_path,
+                "db_type": ctx.db.db_type,
             }
         })
     return jsonify({
@@ -131,6 +132,7 @@ def api_db_status():
         "data": {
             "connected": False,
             "db_path": None,
+            "db_type": None,
         }
     })
 

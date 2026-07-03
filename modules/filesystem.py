@@ -59,23 +59,46 @@ def list_directory(path="."):
                 "is_dir": is_dir,
                 "is_symlink": is_symlink,
                 "is_sqlite": False,
+                "is_csv": False,
+                "is_duckdb": False,
+                "is_db_file": False,
+                "db_type": None,
                 "size": st.st_size,
                 "size_str": format_size(st.st_size),
                 "mode": format_mode(st.st_mode),
                 "modified": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(st.st_mtime)),
                 "permissions": oct(st.st_mode)[-3:],
             }
-            # Detect SQLite files by extension
-            if not is_dir and name.lower().endswith(".db") or name.lower().endswith(".sqlite") or name.lower().endswith(".sqlite3"):
-                entry["is_sqlite"] = True
-            # Quick SQLite magic byte check for files without standard extension
-            if not is_dir and not entry["is_sqlite"] and st.st_size >= 16:
+            # Detect database files by extension
+            if not is_dir:
+                lower = name.lower()
+                if lower.endswith((".db", ".sqlite", ".sqlite3")):
+                    entry["is_sqlite"] = True
+                    entry["is_db_file"] = True
+                    entry["db_type"] = "sqlite"
+                elif lower.endswith(".csv"):
+                    entry["is_csv"] = True
+                    entry["is_db_file"] = True
+                    entry["db_type"] = "csv"
+                elif lower.endswith((".duckdb", ".ddb")):
+                    entry["is_duckdb"] = True
+                    entry["is_db_file"] = True
+                    entry["db_type"] = "duckdb"
+            # Quick magic byte checks for files without standard extensions
+            if not is_dir and not entry["is_db_file"] and st.st_size >= 16:
                 try:
                     with open(full_path, "rb") as f:
                         header = f.read(16)
                     if header == b"SQLite format 3\0":
                         entry["is_sqlite"] = True
+                        entry["is_db_file"] = True
+                        entry["db_type"] = "sqlite"
                         entry["is_sqlite_detected"] = True
+                    elif header[:7] == b"DUCKDB\n":
+                        entry["is_duckdb"] = True
+                        entry["is_db_file"] = True
+                        entry["db_type"] = "duckdb"
+                        entry["is_duckdb_detected"] = True
                 except Exception:
                     pass
             entries.append(entry)
