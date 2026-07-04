@@ -287,6 +287,19 @@ html, body {
     box-shadow: 0 0 0 1px var(--accent);
 }
 
+.data-table tr.adding-row td {
+    background: rgba(137, 180, 250, 0.08);
+    border-top: 2px solid var(--accent);
+}
+
+.data-table tr.adding-row td.editing {
+    background: var(--bg-tertiary);
+}
+
+.data-table tr.adding-row td.editing .cell-editor {
+    border-color: var(--green);
+}
+
 .data-table .filter-row td {
     padding: 4px 6px;
     background: var(--bg-tertiary);
@@ -352,6 +365,26 @@ html, body {
 .btn-small:disabled {
     opacity: 0.4;
     cursor: default;
+}
+
+.btn-save-row {
+    background: rgba(166, 227, 161, 0.15);
+    border-color: rgba(166, 227, 161, 0.3);
+    color: var(--green);
+}
+
+.btn-save-row:hover:not(:disabled) {
+    background: rgba(166, 227, 161, 0.3);
+    color: var(--green);
+}
+
+.btn-cancel-row {
+    color: var(--text-muted);
+}
+
+.btn-cancel-row:hover {
+    color: var(--red);
+    border-color: var(--red);
 }
 
 .btn-disconnect {

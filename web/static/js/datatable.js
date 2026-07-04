@@ -8,6 +8,8 @@
  * - Pagination support
  * - Null value display
  * - Right-click context menu: Add row, Delete row
+ * - Add creates a temporary editable row; Save button persists it to DB
+ * - Delete on an unsaved row removes it from the DOM only
  * - Double-click cell to edit, blur/Enter to save
  */
 class DataTable {
@@ -40,6 +42,9 @@ class DataTable {
         // Editing state
         this._editCell = null;      // {td, col, pkValue, pkCol, originalValue}
         this._contextRow = null;    // The <tr> that was right-clicked
+        this._newRow = null;
+
+        this._createNewRowButtons();
 
         // Bind events
         this.btnFilter.addEventListener('click', () => this._applyGlobalFilter());
@@ -60,15 +65,34 @@ class DataTable {
             }
         });
 
-        // Global click to close context menu and cancel editing
+        // Global click to close context menu
         document.addEventListener('click', (e) => {
             this._hideContextMenu();
         });
     }
 
+    _createNewRowButtons() {
+        this.btnSaveRow = document.createElement('button');
+        this.btnSaveRow.className = 'btn-small btn-save-row hidden';
+        this.btnSaveRow.title = 'Save new row';
+        this.btnSaveRow.textContent = 'Save';
+        this.btnSaveRow.addEventListener('click', () => this._saveNewRow());
+
+        this.btnCancelRow = document.createElement('button');
+        this.btnCancelRow.className = 'btn-small btn-cancel-row hidden';
+        this.btnCancelRow.title = 'Cancel new row';
+        this.btnCancelRow.textContent = '\u2715';
+        this.btnCancelRow.addEventListener('click', () => this._cancelNewRow());
+
+        // Insert after the clear-filter button
+        const ref = this.btnClearFilter;
+        ref.parentNode.insertBefore(this.btnSaveRow, ref.nextSibling);
+        ref.parentNode.insertBefore(this.btnCancelRow, this.btnSaveRow.nextSibling);
+    }
+
     async loadTable(tableName) {
-        // Cancel any active edit
         this._cancelEdit();
+        this._cancelNewRow();
         this.currentTable = tableName;
         this.currentSortBy = null;
         this.currentSortDir = 'asc';
@@ -81,6 +105,7 @@ class DataTable {
     }
 
     async _loadData() {
+        this._cancelNewRow();
         const params = new URLSearchParams();
         params.set('page', this.currentPage);
         params.set('per_page', this.perPage);
@@ -329,17 +354,16 @@ class DataTable {
     _showTableContextMenu(x, y, pkValue, pkCol) {
         this.contextMenuItems.innerHTML = '';
 
-        // Add option
         const addItem = document.createElement('li');
         addItem.textContent = 'Add';
         addItem.addEventListener('click', () => {
             this.contextMenu.classList.add('hidden');
-            this._addRow();
+            this._addEmptyRow();
         });
         this.contextMenuItems.appendChild(addItem);
 
-        // Delete option (only if we have a PK value — i.e. a real row)
-        if (pkValue !== null && pkValue !== undefined && pkCol) {
+        const isNewRow = this._newRow && this._contextRow === this._newRow;
+        if ((pkValue !== null && pkValue !== undefined && pkCol) || isNewRow) {
             const delItem = document.createElement('li');
             delItem.textContent = 'Delete';
             delItem.addEventListener('click', () => {
@@ -358,46 +382,132 @@ class DataTable {
         this.contextMenu.classList.add('hidden');
     }
 
-    // ─── Add Row ─────────────────────────────────────────────────
+    // ─── Add (Temp Row) / Save / Cancel ──────────────────────────
 
-    async _addRow() {
+    _addEmptyRow() {
+        if (this._newRow) return;
         if (!this.currentTable) return;
+
+        const tbody = this.container.querySelector('table.data-table tbody');
+        if (!tbody) return;
+
+        const tr = document.createElement('tr');
+        tr.dataset.adding = 'true';
+        tr.className = 'adding-row';
+
+        const cols = this.columns;
+        const pkCol = this.primaryKey;
+
+        for (const col of cols) {
+            const td = document.createElement('td');
+            td.dataset.col = col;
+
+            const isPk = col === pkCol;
+            if (isPk) {
+                td.textContent = '(auto)';
+                td.className = 'null-value';
+            } else {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'cell-editor';
+                input.placeholder = `Enter ${col}...`;
+                td.textContent = '';
+                td.appendChild(input);
+                td.classList.add('editing');
+            }
+            tr.appendChild(td);
+        }
+
+        tr.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this._contextRow = tr;
+            this._showTableContextMenu(e.clientX, e.clientY, null, null);
+        });
+
+        tr.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                this._cancelNewRow();
+            }
+        });
+
+        tr.querySelectorAll('input').forEach((input) => {
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this._saveNewRow();
+                }
+            });
+        });
+
+        tbody.insertBefore(tr, tbody.firstChild);
+        this._newRow = tr;
+
+        this.btnSaveRow.classList.remove('hidden');
+        this.btnCancelRow.classList.remove('hidden');
+
+        const firstInput = tr.querySelector('input');
+        if (firstInput) {
+            firstInput.focus();
+        }
+
+        this.container.querySelector('.data-table')?.scrollIntoView({ block: 'nearest' });
+    }
+
+    async _saveNewRow() {
+        if (!this._newRow) return;
+        if (!this.currentTable) return;
+
+        this.btnSaveRow.disabled = true;
+        this.btnSaveRow.textContent = 'Saving...';
+
+        const data = {};
+        const inputs = this._newRow.querySelectorAll('td[data-col]');
+
+        for (const td of inputs) {
+            const col = td.dataset.col;
+            const input = td.querySelector('input.cell-editor');
+            if (input) {
+                data[col] = input.value.trim() || null;
+            }
+        }
+
         try {
             const res = await fetch(`/api/db/rows/${encodeURIComponent(this.currentTable)}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ data: {} }),
+                body: JSON.stringify({ data }),
             });
             const json = await res.json();
             if (!json.ok) throw new Error(json.error);
 
-            // Reload current page to show new row
+            this._cancelNewRow();
             await this._loadData();
-
-            // If we have a PK and the new row has one, find the new row and start editing the first non-PK cell
-            const newRow = json.data;
-            if (newRow && this.primaryKey) {
-                const pkVal = newRow[this.primaryKey];
-                if (pkVal !== null && pkVal !== undefined) {
-                    const tr = this.container.querySelector(`tr[data-pk="${pkVal}"]`);
-                    if (tr) {
-                        // Start editing the first non-PK cell
-                        const firstDataTd = tr.querySelector('td:first-child');
-                        if (firstDataTd) {
-                            const col = firstDataTd.dataset.col;
-                            this._startCellEdit(firstDataTd, col, pkVal, this.primaryKey);
-                        }
-                    }
-                }
-            }
         } catch (err) {
-            this.container.innerHTML = `<div class="placeholder-msg" style="color:var(--red)">Add failed: ${this._escapeHtml(err.message)}</div>`;
+            this.btnSaveRow.disabled = false;
+            this.btnSaveRow.textContent = 'Save';
+            this.container.innerHTML = `<div class="placeholder-msg" style="color:var(--red)">Save failed: ${this._escapeHtml(err.message)}</div>`;
         }
+    }
+
+    _cancelNewRow() {
+        if (!this._newRow) return;
+        this._newRow.remove();
+        this._newRow = null;
+        this.btnSaveRow.classList.add('hidden');
+        this.btnCancelRow.classList.add('hidden');
+        this.btnSaveRow.disabled = false;
+        this.btnSaveRow.textContent = 'Save';
     }
 
     // ─── Delete Row ──────────────────────────────────────────────
 
     async _deleteRow(pkValue, pkCol) {
+        if (this._newRow && this._contextRow === this._newRow) {
+            this._cancelNewRow();
+            return;
+        }
         if (!this.currentTable) return;
         try {
             const res = await fetch(`/api/db/rows/${encodeURIComponent(this.currentTable)}`, {
@@ -411,7 +521,6 @@ class DataTable {
             const json = await res.json();
             if (!json.ok) throw new Error(json.error);
 
-            // Reload current page
             await this._loadData();
         } catch (err) {
             this.container.innerHTML = `<div class="placeholder-msg" style="color:var(--red)">Delete failed: ${this._escapeHtml(err.message)}</div>`;
@@ -468,6 +577,7 @@ class DataTable {
 
     showQueryResult(columns, rows) {
         this._cancelEdit();
+        this._cancelNewRow();
         this.currentTable = null;
         this.currentSortBy = null;
         this.currentSortDir = 'asc';
@@ -487,6 +597,7 @@ class DataTable {
 
     showPlaceholder(msg) {
         this._cancelEdit();
+        this._cancelNewRow();
         this.tableTitle.textContent = 'Results';
         this.tableControls.classList.add('hidden');
         this.pagination.classList.add('hidden');
