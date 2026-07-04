@@ -16,6 +16,7 @@ class Terminal {
         this.historyIndex = -1;
         this.lines = [];
         this.onCwdChange = options.onCwdChange || (() => {});
+        this.onQueryResult = options.onQueryResult || (() => {});
 
         // Welcome message
         this._writeln('Database Explorer Terminal v1.0');
@@ -93,6 +94,9 @@ class Terminal {
             if (json.ok) {
                 if (json.data.output) {
                     this._writeln(json.data.output);
+                }
+                if (json.data.query_result) {
+                    this.onQueryResult(json.data.query_result);
                 }
                 if (json.data.cwd) {
                     const prev = this.cwdEl.textContent;

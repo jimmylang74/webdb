@@ -225,6 +225,21 @@ class DataTable {
         }
     }
 
+    showQueryResult(columns, rows) {
+        this.currentTable = null;
+        this.currentSortBy = null;
+        this.currentSortDir = 'asc';
+        this.currentPage = 1;
+        this.columnFilters = {};
+        this.filterInput.value = '';
+        this.tableControls.classList.remove('hidden');
+        this.tableTitle.textContent = `Query Results (${rows.length} rows)`;
+        this.totalRows = rows.length;
+        this.totalPages = 1;
+        this.pagination.classList.add('hidden');
+        this._render({columns, rows, total: rows.length, total_pages: 1});
+    }
+
     showPlaceholder(msg) {
         this.tableTitle.textContent = 'Results';
         this.tableControls.classList.add('hidden');

@@ -29,6 +29,9 @@ class App {
                     this.tree.loadDirectory(newCwd);
                 }
             },
+            onQueryResult: (data) => {
+                this.table.showQueryResult(data.columns, data.rows);
+            },
         });
 
         // Bind events
