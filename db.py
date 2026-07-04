@@ -190,10 +190,70 @@ def api_db_rows(table_name):
             page=page,
             per_page=per_page,
         )
+        # Include primary key info for CRUD operations
+        schema = ctx.db.get_table_schema(table_name)
+        pk_columns = [c["name"] for c in schema if c["pk"]]
+        result["primary_key"] = pk_columns[0] if pk_columns else schema[0]["name"]
+        result["schema"] = schema
         return jsonify({"ok": True, "data": result})
     except RuntimeError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/db/rows/<table_name>", methods=["POST"])
+def api_db_insert_row(table_name):
+    """Insert a new row. Sends column data or empty object for auto-generation."""
+    ctx = get_ctx()
+    body = request.get_json() or {}
+    row_data = body.get("data", {})
+    try:
+        result = ctx.db.insert_row(table_name, row_data)
+        return jsonify({"ok": True, "data": result})
+    except RuntimeError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        logger.exception("Error inserting row")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/db/rows/<table_name>", methods=["PUT"])
+def api_db_update_row(table_name):
+    """Update a single row identified by primary key."""
+    ctx = get_ctx()
+    body = request.get_json() or {}
+    pk_column = body.get("pk_column", "")
+    pk_value = body.get("pk_value")
+    row_data = body.get("data", {})
+    if not pk_column or pk_value is None:
+        return jsonify({"ok": False, "error": "pk_column and pk_value are required"}), 400
+    try:
+        ctx.db.update_row(table_name, pk_column, pk_value, row_data)
+        return jsonify({"ok": True})
+    except RuntimeError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        logger.exception("Error updating row")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/db/rows/<table_name>", methods=["DELETE"])
+def api_db_delete_row(table_name):
+    """Delete a single row identified by primary key."""
+    ctx = get_ctx()
+    body = request.get_json() or {}
+    pk_column = body.get("pk_column", "")
+    pk_value = body.get("pk_value")
+    if not pk_column or pk_value is None:
+        return jsonify({"ok": False, "error": "pk_column and pk_value are required"}), 400
+    try:
+        ctx.db.delete_row(table_name, pk_column, pk_value)
+        return jsonify({"ok": True})
+    except RuntimeError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        logger.exception("Error deleting row")
         return jsonify({"ok": False, "error": str(e)}), 500
 
 

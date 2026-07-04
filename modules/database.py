@@ -273,6 +273,107 @@ class DatabaseManager:
                 "total_pages": max(1, (total_rows + per_page - 1) // per_page),
             }
 
+    def insert_row(self, table_name, data=None):
+        """Insert a new row. Auto-generates PK value if not provided."""
+        with self._lock:
+            if not self.is_connected():
+                raise RuntimeError("No database connected")
+            if self.db_type == "csv":
+                raise RuntimeError("Cannot insert into a CSV file")
+
+            schema = self.get_table_schema(table_name)
+            pk_columns = [c["name"] for c in schema if c["pk"]]
+            pk_col = pk_columns[0] if pk_columns else schema[0]["name"]
+
+            if data is None:
+                data = {}
+
+            # Auto-generate PK value if empty / not provided
+            if pk_col not in data or data[pk_col] is None or data[pk_col] == "":
+                pk_type = next(
+                    (c["type"] for c in schema if c["name"] == pk_col), "INTEGER"
+                )
+                if any(t in pk_type.upper() for t in ("INT", "BIG", "SMALL", "TINY", "MEDIUM")):
+                    cur = self.connection.execute(
+                        f'SELECT MAX("{pk_col}") FROM "{table_name}"'
+                    )
+                    max_val = cur.fetchone()[0]
+                    data[pk_col] = (max_val or 0) + 1
+                else:
+                    import uuid
+
+                    data[pk_col] = str(uuid.uuid4())[:8]
+
+            columns = list(data.keys())
+            placeholders = ["?"] * len(columns)
+            values = [data[c] for c in columns]
+
+            sql = (
+                f'INSERT INTO "{table_name}" ('
+                + ", ".join(f'"{c}"' for c in columns)
+                + ") VALUES ("
+                + ", ".join(placeholders)
+                + ")"
+            )
+            cur = self.connection.cursor()
+            cur.execute(sql, values)
+            if self.db_type == "sqlite":
+                self.connection.commit()
+            else:
+                try:
+                    self.connection.commit()
+                except AttributeError:
+                    pass
+
+            select_sql = f'SELECT * FROM "{table_name}" WHERE "{pk_col}" = ?'
+            cur = self.connection.execute(select_sql, [data[pk_col]])
+            row = dict(zip([desc[0] for desc in cur.description], cur.fetchone()))
+            return row
+
+    def update_row(self, table_name, pk_column, pk_value, data):
+        """Update a single row identified by its primary key."""
+        with self._lock:
+            if not self.is_connected():
+                raise RuntimeError("No database connected")
+            if self.db_type == "csv":
+                raise RuntimeError("Cannot update a CSV file")
+
+            set_clauses = [f'"{c}" = ?' for c in data.keys()]
+            values = list(data.values())
+            values.append(pk_value)
+
+            sql = (
+                f'UPDATE "{table_name}" SET '
+                + ", ".join(set_clauses)
+                + f' WHERE "{pk_column}" = ?'
+            )
+            self.connection.execute(sql, values)
+            if self.db_type == "sqlite":
+                self.connection.commit()
+            else:
+                try:
+                    self.connection.commit()
+                except AttributeError:
+                    pass
+
+    def delete_row(self, table_name, pk_column, pk_value):
+        """Delete a single row identified by its primary key."""
+        with self._lock:
+            if not self.is_connected():
+                raise RuntimeError("No database connected")
+            if self.db_type == "csv":
+                raise RuntimeError("Cannot delete from a CSV file")
+
+            sql = f'DELETE FROM "{table_name}" WHERE "{pk_column}" = ?'
+            self.connection.execute(sql, [pk_value])
+            if self.db_type == "sqlite":
+                self.connection.commit()
+            else:
+                try:
+                    self.connection.commit()
+                except AttributeError:
+                    pass
+
     def execute_sql(self, sql):
         """Execute an arbitrary SQL statement and return results."""
         with self._lock:
