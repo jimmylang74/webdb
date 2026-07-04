@@ -1,0 +1,3 @@
+Flask>=3.0
+waitress>=3.0    # Optional — production WSGI server, auto-detected
+duckdb>=1.0      # Optional — required for DuckDB (.duckdb/.ddb) and CSV support
