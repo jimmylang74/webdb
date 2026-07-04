@@ -210,14 +210,16 @@ def api_shell_exec():
     try:
         # Pass the session's db_manager so SQL commands route to this
         # session's database connection.
-        output = ctx.shell.execute(command, db_manager=ctx.db)
-        return jsonify({
-            "ok": True,
-            "data": {
-                "output": output,
-                "cwd": ctx.shell.cwd,
-            }
-        })
+        result = ctx.shell.execute(command, db_manager=ctx.db)
+        # SQL queries return a dict with 'output' and optional 'query_result';
+        # shell commands return a bare string.
+        if isinstance(result, dict):
+            response_data = {"output": result["output"], "cwd": ctx.shell.cwd}
+            if result.get("query_result"):
+                response_data["query_result"] = result["query_result"]
+        else:
+            response_data = {"output": result, "cwd": ctx.shell.cwd}
+        return jsonify({"ok": True, "data": response_data})
     except Exception as e:
         logger.exception("Error executing shell command")
         return jsonify({"ok": False, "error": str(e)}), 500

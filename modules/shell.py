@@ -148,30 +148,45 @@ class ShellSession:
                 lines.append(line.rstrip())
             return "\n".join(lines) + "\n"
 
+    MAX_COL_WIDTH = 500  # Cap display width per column to prevent multi-MB output
+
+    @staticmethod
+    def _trunc(val, width):
+        """Truncate a value to width with ellipsis if needed."""
+        s = str(val)
+        if len(s) > width:
+            return s[:width - 3] + "..." if width > 3 else s[:width]
+        return s.ljust(width)
+
     def _execute_sql(self, command, db_manager):
-        """Execute SQL command and format result."""
+        """Execute SQL command and format result.
+
+        Returns a dict with ``output`` (formatted string) and optionally
+        ``query_result`` (raw ``execute_sql`` result for the DataTable).
+        """
         try:
             result = db_manager.execute_sql(command)
             if result["type"] == "query":
                 if not result["rows"]:
-                    return "Query returned no rows.\n"
+                    return {"output": "Query returned no rows.\n"}
                 cols = result["columns"]
-                widths = [len(c) for c in cols]
+                widths = [min(len(c), self.MAX_COL_WIDTH) for c in cols]
                 for row in result["rows"]:
                     for i, col in enumerate(cols):
                         val = str(row.get(col, ""))
-                        widths[i] = max(widths[i], len(val))
+                        widths[i] = max(widths[i], min(len(val), self.MAX_COL_WIDTH))
 
-                header = " | ".join(c.ljust(w) for c, w in zip(cols, widths))
+                header = " | ".join(self._trunc(c, w) for c, w in zip(cols, widths))
                 sep = "-+-".join("-" * w for w in widths)
                 lines = [header, sep]
                 for row in result["rows"]:
-                    lines.append(" | ".join(str(row.get(c, "")).ljust(w) for c, w in zip(cols, widths)))
-                return "\n".join(lines) + f"\n({len(result['rows'])} rows)\n"
+                    lines.append(" | ".join(self._trunc(row.get(c, ""), w) for c, w in zip(cols, widths)))
+                output = "\n".join(lines) + f"\n({len(result['rows'])} rows)\n"
+                return {"output": output, "query_result": result}
             else:
-                return f"Query OK, {result['affected']} rows affected.\n"
+                return {"output": f"Query OK, {result['affected']} rows affected.\n"}
         except Exception as e:
-            return f"SQL Error: {e}\n"
+            return {"output": f"SQL Error: {e}\n"}
 
     def _run_command(self, command):
         """Run a general shell command via subprocess."""
